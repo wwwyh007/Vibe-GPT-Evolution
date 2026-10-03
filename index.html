@@ -1,0 +1,472 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe知识大赏 - 进化的形状</title>
+    <script src="https://cdn.staticfile.net/gsap/3.12.5/gsap.min.js"></script>
+    <style>
+        :root { --bg: #11100e; --gold: #d4af37; --gold-dim: #857a60; --text-light: #ebdcae; }
+        body, html { margin: 0; padding: 0; background: var(--bg); color: var(--text-light); font-family: 'Noto Serif SC', 'Songti SC', serif; overflow: hidden; user-select: none; }
+        canvas { position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        .ui-layer { position: absolute; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 6vh 6vw; transition: all 2s ease; }
+        .top-bar { display: flex; justify-content: space-between; font-size: 1.6rem; letter-spacing: 5px; color: var(--gold-dim); font-weight: 300; transition: opacity 1.5s ease; }
+        
+        .bottom-bar { 
+            text-align: center; margin-bottom: 2vh; 
+            background: radial-gradient(circle at center, rgba(17,16,14,0.95) 0%, rgba(17,16,14,0.7) 60%, rgba(17,16,14,0) 100%);
+            padding: 40px 60px;
+            transition: all 2s ease;
+        }
+        
+        .title { font-size: 3.8rem; letter-spacing: 12px; margin-bottom: 25px; font-weight: bold; color: var(--gold); text-shadow: 0 0 30px rgba(212, 175, 55, 0.3); }
+        .desc { font-size: 1.5rem; color: var(--text-light); letter-spacing: 4px; font-weight: 300; margin-bottom: 25px; line-height: 1.8; max-width: 1400px; margin-left: auto; margin-right: auto; }
+        .quote { font-style: italic; font-size: 1.3rem; color: var(--gold-dim); letter-spacing: 4px; }
+        .anim-text { opacity: 0; transform: translateY(15px); }
+
+        .outro-mode .top-bar { opacity: 0; }
+        .outro-mode .bottom-bar {
+            position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%);
+            width: 100%; background: transparent;
+        }
+        .outro-mode .title { font-size: 7rem; letter-spacing: 30px; text-shadow: 0 0 60px rgba(212, 175, 55, 0.5); }
+        .outro-mode .desc { font-size: 2rem; color: var(--gold-dim); letter-spacing: 8px;}
+
+        /* 精美的电影级封面 UI */
+        #start-panel { 
+            position: absolute; z-index: 10; width: 100%; height: 100%; 
+            /* 半透明渐变背景与高斯模糊，透出底层的粒子动画 */
+            background: radial-gradient(circle at center, rgba(17,16,14,0.4) 0%, rgba(17,16,14,0.95) 100%);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            pointer-events: auto; transition: opacity 1.5s ease; 
+        }
+        .cover-subtitle { font-size: 1.1rem; letter-spacing: 10px; color: var(--gold-dim); margin-bottom: 20px; font-family: sans-serif; padding-left: 10px; }
+        .cover-title { font-size: 5rem; letter-spacing: 25px; margin-bottom: 30px; color: var(--gold); font-weight: normal; text-shadow: 0 0 50px rgba(212, 175, 55, 0.5); padding-left: 25px; /* 抵消 letter-spacing 造成的视觉偏移 */ }
+        .cover-desc { font-size: 1.2rem; letter-spacing: 6px; color: rgba(235, 220, 174, 0.7); margin-bottom: 70px; padding-left: 6px; }
+        
+        #start-btn { 
+            display: flex; align-items: center; justify-content: center; gap: 12px;
+            padding: 16px 45px; font-size: 1.1rem; background: transparent; 
+            border: 1px solid rgba(212, 175, 55, 0.4); color: var(--gold); 
+            border-radius: 50px; cursor: pointer; transition: all 0.5s ease; 
+            font-family: sans-serif; letter-spacing: 5px; padding-left: 50px; /* 视觉平衡 */
+        }
+        #start-btn:hover { 
+            background: rgba(212, 175, 55, 0.12); 
+            border-color: rgba(212, 175, 55, 0.8);
+            box-shadow: 0 0 40px rgba(212, 175, 55, 0.3); 
+            transform: scale(1.03); 
+        }
+        #start-btn svg { width: 18px; height: 18px; fill: currentColor; }
+    </style>
+</head>
+<body>
+    <canvas id="c"></canvas>
+    
+    <div class="ui-layer" id="ui-container">
+        <div class="top-bar">
+            <div class="anim-text" id="t-year"></div>
+            <div class="anim-text" id="t-ref"></div>
+        </div>
+        <div class="bottom-bar">
+            <div class="title anim-text" id="t-title"></div>
+            <div class="desc anim-text" id="t-desc"></div>
+            <div class="quote anim-text" id="t-quote"></div>
+        </div>
+    </div>
+
+    <!-- 电影级封面重构 -->
+    <div id="start-panel">
+        <div class="cover-subtitle">THE EVOLUTION OF GPT</div>
+        <h1 class="cover-title">运气的形状</h1>
+        <div class="cover-desc">一部关于算力、概率与硅基进化的视觉编年史</div>
+        <button id="start-btn">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <span>PLAY</span>
+        </button>
+    </div>
+
+    <audio id="bgm" src="bgm.mp4"></audio>
+
+    <script>
+        const canvas = document.getElementById('c');
+        const ctx = canvas.getContext('2d');
+        let w, h, cx, cy;
+        function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; cx = w/2; cy = h/2; }
+        window.addEventListener('resize', resize); resize();
+
+        let time = 0;
+        let currentScene = 0;
+
+        const latentBalls = Array.from({length: 150}, () => ({x: 0, y: 0, initialized: false}));
+        const moeBalls = [];
+        const agentBalls = [];
+        const galtonBalls = [];
+        const BUCKET_COUNT = 60;
+        const buckets = new Array(BUCKET_COUNT).fill(0);
+        const BALL_RADIUS = 3.5;
+        const BUCKET_WIDTH = 12;
+        const maxBuckets = new Array(BUCKET_COUNT).fill(0);
+        for(let i=0; i<BUCKET_COUNT; i++) {
+            let x = (i - BUCKET_COUNT/2) / 7; 
+            maxBuckets[i] = Math.floor(Math.exp(-(x*x)/2) * 50); 
+        }
+
+        function drawProbabilityTree(x, y, depth, maxDepth, angle, length, activePath) {
+            if (depth === maxDepth) return;
+            let nx = x + Math.cos(angle) * length; let ny = y + Math.sin(angle) * length;
+            
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, ny);
+            if (activePath) { ctx.strokeStyle = `rgba(212, 175, 55, ${0.7 + Math.sin(time*3)*0.3})`; ctx.lineWidth = 3.5; } 
+            else { ctx.strokeStyle = 'rgba(133, 122, 96, 0.2)'; ctx.lineWidth = 1.5; }
+            ctx.stroke();
+
+            if (activePath) { ctx.fillStyle = '#d4af37'; ctx.beginPath(); ctx.arc(nx, ny, 3.5, 0, 7); ctx.fill(); }
+
+            let goLeftIsActive = activePath && depth % 2 !== 0; let goRightIsActive = activePath && depth % 2 === 0;
+            drawProbabilityTree(nx, ny, depth+1, maxDepth, angle - 0.45, length * 0.75, goLeftIsActive);
+            drawProbabilityTree(nx, ny, depth+1, maxDepth, angle + 0.45, length * 0.75, goRightIsActive);
+        }
+
+        function render() {
+            ctx.globalCompositeOperation = 'source-over';
+            if (currentScene !== 10) {
+                let grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, w);
+                grad.addColorStop(0, 'rgba(28, 26, 23, 0.4)'); grad.addColorStop(1, 'rgba(12, 11, 10, 0.4)');
+                ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h); ctx.globalCompositeOperation = 'lighter';
+            } else {
+                ctx.fillStyle = 'rgba(12, 11, 10, 0.08)'; ctx.fillRect(0, 0, w, h); ctx.globalCompositeOperation = 'source-over'; 
+            }
+            
+            time += 0.015;
+
+            // Scene 0: Symbolic AI (用作封面背景动画)
+            if (currentScene === 0) {
+                ctx.strokeStyle = 'rgba(212, 175, 55, 0.25)'; ctx.lineWidth = 1;
+                for(let i=0; i<35; i++) {
+                    let x = cx + Math.sin(time*0.4 + i*1.2)*250; let y = cy-150 + Math.cos(time*0.3 + i*2.1)*180;
+                    ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fillStyle = 'rgba(235, 220, 174, 0.8)'; ctx.fill();
+                    for(let j=i+1; j<35; j++) {
+                        let x2 = cx + Math.sin(time*0.4 + j*1.2)*250; let y2 = cy-150 + Math.cos(time*0.3 + j*2.1)*180;
+                        let d = Math.hypot(x-x2, y-y2);
+                        if(d < 140) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke(); }
+                    }
+                }
+            }
+            // Scene 1: Embeddings
+            else if (currentScene === 1) {
+                let centers = [{x: cx-180, y: cy-120}, {x: cx+180, y: cy-200}, {x: cx, y: cy-60}];
+                latentBalls.forEach((b, i) => {
+                    if(!b.initialized) { b.x = cx+(Math.random()-0.5)*800; b.y = cy-150+(Math.random()-0.5)*800; b.initialized = true; }
+                    let target = centers[i % 3];
+                    b.x += (target.x + Math.cos(time*1.5+i)*60 - b.x) * 0.03;
+                    b.y += (target.y + Math.sin(time*1.5+i)*60 - b.y) * 0.03;
+                    ctx.fillStyle = (i%3===0)?'#d4af37':(i%3===1)?'#857a60':'#ebdcae';
+                    ctx.beginPath(); ctx.arc(b.x, b.y, 3.5, 0, 7); ctx.fill();
+                });
+            }
+            // Scene 2: Transformer
+            else if (currentScene === 2) {
+                let radius = 240;
+                ctx.strokeStyle = 'rgba(212, 175, 55, 0.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy - 120, radius, 0, 7); ctx.stroke();
+                for(let i=0; i<8; i++) {
+                    let a1 = i * Math.PI/4 + time*0.25; let x1 = cx + Math.cos(a1)*radius; let y1 = cy - 120 + Math.sin(a1)*radius;
+                    for(let j=0; j<8; j++) {
+                        let a2 = j * Math.PI/4 + time*0.25; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(cx + Math.cos(a2)*radius, cy - 120 + Math.sin(a2)*radius); ctx.stroke();
+                    }
+                    ctx.fillStyle = '#ebdcae'; ctx.beginPath(); ctx.arc(x1, y1, 7, 0, 7); ctx.fill();
+                }
+                ctx.beginPath(); ctx.arc(cx, cy - 120, 20 + Math.sin(time*4)*6, 0, 7); ctx.fill();
+            } 
+            // Scene 3: Scaling Law
+            else if (currentScene === 3) {
+                ctx.fillStyle = '#d4af37';
+                for (let i = 0; i < 400; i++) {
+                    let z = (i % 20) * 40 - (time * 60 % 40); if (z <= 0) z += 800; 
+                    let x = cx + ((Math.floor(i/20) - 10) * 120) / (z/100); let y = cy - 120 + (Math.sin(i + time*1.5) * 60) / (z/100);
+                    let size = Math.max(0.5, 400 / z); let alpha = Math.max(0, 1 - z/800);
+                    ctx.globalAlpha = alpha; ctx.beginPath(); ctx.arc(x, y, size*1.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+                }
+            } 
+            // Scene 4: RLHF
+            else if (currentScene === 4) { drawProbabilityTree(cx, cy - 250, 0, 9, Math.PI/2, 100, true); } 
+            // Scene 5: MoE
+            else if (currentScene === 5) {
+                let cyMoE = cy - 140;
+                for(let i=0; i<8; i++){
+                    let a = i * Math.PI/4 + time*0.1; let ex = cx + Math.cos(a)*220; let ey = cyMoE + Math.sin(a)*220;
+                    ctx.strokeStyle = 'rgba(133, 122, 96, 0.5)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(ex, ey, 25, 0, 7); ctx.stroke();
+                }
+                ctx.fillStyle = '#ebdcae'; ctx.beginPath(); ctx.arc(cx, cyMoE, 18, 0, 7); ctx.fill();
+                
+                let t_period = Math.floor(time * 0.8); let activeExperts = [t_period % 8, (t_period + 3) % 8];
+                if (Math.random() < 0.6) {
+                    let targetExpert = activeExperts[Math.floor(Math.random()*2)];
+                    let ta = targetExpert * Math.PI/4 + time*0.1; let tx = cx + Math.cos(ta)*220; let ty = cyMoE + Math.sin(ta)*220;
+                    moeBalls.push({x: cx, y: cyMoE, tx: tx, ty: ty, prog: 0, color: '#d4af37'});
+                }
+                for (let i = moeBalls.length - 1; i >= 0; i--) {
+                    let b = moeBalls[i]; b.prog += 0.025;
+                    if (b.prog > 1) { moeBalls.splice(i, 1); continue; }
+                    let bx = b.x + (b.tx - b.x)*b.prog; let by = b.y + (b.ty - b.y)*b.prog;
+                    ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(bx, by, 4, 0, 7); ctx.fill();
+                }
+                activeExperts.forEach(exIdx => {
+                    let ta = exIdx * Math.PI/4 + time*0.1; let tx = cx + Math.cos(ta)*220; let ty = cyMoE + Math.sin(ta)*220;
+                    ctx.fillStyle = 'rgba(212, 175, 55, 0.6)'; ctx.beginPath(); ctx.arc(tx, ty, 25, 0, 7); ctx.fill();
+                });
+            }
+            // Scene 6: Omni
+            else if (currentScene === 6) {
+                let amps = [50, 80, 110]; let freqs = [0.015, 0.025, 0.01]; let colors = ['rgba(212, 175, 55, 0.8)', 'rgba(235, 220, 174, 0.7)', 'rgba(133, 122, 96, 0.9)'];
+                ctx.lineWidth = 3;
+                for(let w=0; w<3; w++) {
+                    ctx.beginPath();
+                    for(let x=-400; x<=400; x+=10) {
+                        let envelope = Math.exp(-(x*x)/60000); let y = cy - 120 + Math.sin(x*freqs[w] + time*(w+1.5))*amps[w] * envelope; 
+                        if(x===-400) ctx.moveTo(cx+x, y); else ctx.lineTo(cx+x, y);
+                    }
+                    ctx.strokeStyle = colors[w]; ctx.stroke();
+                }
+            }
+            // Scene 7: GPT-5.6
+            else if (currentScene === 7) {
+                let cyAgent = cy - 140;
+                let tools = [{x: cx - 250, y: cyAgent - 150}, {x: cx + 250, y: cyAgent - 150}, {x: cx, y: cyAgent - 250}, {x: cx - 180, y: cyAgent + 100}, {x: cx + 180, y: cyAgent + 100}];
+                ctx.strokeStyle = 'rgba(212, 175, 55, 0.5)'; ctx.lineWidth = 2;
+                tools.forEach(t => { ctx.beginPath(); ctx.rect(t.x-18, t.y-18, 36, 36); ctx.stroke(); });
+                
+                ctx.beginPath();
+                for(let i=0; i<6; i++) { let a = i * Math.PI/3 + time*0.5; ctx.lineTo(cx + Math.cos(a)*45, cyAgent + Math.sin(a)*45); }
+                ctx.closePath(); ctx.fillStyle = 'rgba(235, 220, 174, 0.9)'; ctx.fill();
+                
+                if (Math.random() < 0.25) {
+                    let target = tools[Math.floor(Math.random()*tools.length)]; agentBalls.push({x:cx, y:cyAgent, tx:target.x, ty:target.y, prog:0, state:0}); 
+                }
+                for (let i = agentBalls.length - 1; i >= 0; i--) {
+                    let b = agentBalls[i];
+                    if (b.state === 0) {
+                        b.prog += 0.02; let bx = b.x + (b.tx - b.x)*b.prog; let by = b.y + (b.ty - b.y)*b.prog;
+                        ctx.fillStyle = '#857a60'; ctx.beginPath(); ctx.arc(bx, by, 4, 0, 7); ctx.fill(); if(b.prog >= 1) { b.state = 1; b.prog = 0; }
+                    } else if (b.state === 1) {
+                        b.prog += 0.015; let bx = b.tx + (b.x - b.tx)*b.prog; let by = b.y + (b.ty - b.y)*b.prog;
+                        ctx.fillStyle = '#d4af37'; ctx.beginPath(); ctx.arc(bx, by, 6, 0, 7); ctx.fill(); if(b.prog >= 1) agentBalls.splice(i, 1);
+                    }
+                }
+            }
+            // Scene 8: GPT-6 Astra
+            else if (currentScene === 8) {
+                let r1 = 200, r2 = 220, r3 = 240, r4 = 260;
+                ctx.fillStyle = '#ebdcae'; ctx.beginPath(); ctx.arc(cx, cy - 120, 30 + Math.sin(time*5)*8, 0, 7); ctx.fill();
+                
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = 'rgba(212, 175, 55, 0.8)'; ctx.beginPath(); ctx.ellipse(cx, cy - 120, r1, r1 * Math.abs(Math.sin(time*0.6)), time*0.2, 0, 7); ctx.stroke();
+                ctx.strokeStyle = 'rgba(235, 220, 174, 0.6)'; ctx.beginPath(); ctx.ellipse(cx, cy - 120, r2, r2 * Math.abs(Math.cos(time*0.8)), -time*0.3, 0, 7); ctx.stroke();
+                ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)'; ctx.beginPath(); ctx.ellipse(cx, cy - 120, r3, r3 * Math.abs(Math.sin(time*0.5)), time*0.1, 0, 7); ctx.stroke();
+                ctx.strokeStyle = 'rgba(133, 122, 96, 0.3)'; ctx.beginPath(); ctx.ellipse(cx, cy - 120, r4, r4 * Math.abs(Math.cos(time*0.4)), -time*0.2, 0, 7); ctx.stroke();
+            } 
+            // Scene 9: AGI (Galton)
+            else if (currentScene === 9) {
+                ctx.globalCompositeOperation = 'source-over'; let baseY = h - 350; 
+                ctx.fillStyle = 'rgba(133, 122, 96, 0.2)';
+                for (let r = 0; r < 14; r++) { for (let c = 0; c <= r; c++) { ctx.beginPath(); ctx.arc(cx + (c - r/2) * BUCKET_WIDTH*2, cy - 400 + r * 20, 2.5, 0, 7); ctx.fill(); } }
+                
+                if (Math.random() < 0.8) { 
+                    let u = 1 - Math.random(), v = Math.random(); let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+                    let bIdx = Math.floor(z * 7 + (BUCKET_COUNT/2));
+                    if (bIdx >= 0 && bIdx < BUCKET_COUNT && buckets[bIdx] < maxBuckets[bIdx]) { galtonBalls.push({x: cx, y: cy - 400, tx: cx + (bIdx - (BUCKET_COUNT/2)) * BUCKET_WIDTH, prog: 0, speed: 0.015 + Math.random() * 0.01, bucketIndex: bIdx}); }
+                }
+                
+                ctx.fillStyle = '#d4af37';
+                for (let i = 0; i < BUCKET_COUNT; i++) {
+                    for (let j = 0; j < buckets[i]; j++) {
+                        let px = cx + (i - (BUCKET_COUNT/2)) * BUCKET_WIDTH; let py = baseY - j * (BALL_RADIUS * 2 * 0.85); ctx.beginPath(); ctx.arc(px, py, BALL_RADIUS, 0, 7); ctx.fill();
+                    }
+                }
+                for (let i = galtonBalls.length - 1; i >= 0; i--) {
+                    let b = galtonBalls[i]; b.prog += b.speed;
+                    if (b.prog >= 1) { buckets[b.bucketIndex]++; galtonBalls.splice(i, 1); } 
+                    else {
+                        let bx = cx + (b.tx - cx) * Math.pow(b.prog, 1.2); let targetY = baseY - buckets[b.bucketIndex] * (BALL_RADIUS * 2 * 0.85); let by = b.y + (targetY - b.y) * Math.pow(b.prog, 1.8);
+                        ctx.beginPath(); ctx.arc(bx, by, BALL_RADIUS, 0, 7); ctx.fill();
+                    }
+                }
+            }
+            // Scene 10: 最终时间轴
+            else if (currentScene === 10) {
+                if (!window.scene10StartTime) window.scene10StartTime = time;
+                let st = time - window.scene10StartTime - 1.5; 
+                let timelineY = cy + 150; let startX = cx - 650; let endX = cx + 650; let lineLength = endX - startX; let animDuration = 16; 
+                
+                if (st > 0) {
+                    let currentLineX = Math.min(startX + (st / animDuration) * lineLength, endX);
+                    ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(startX, timelineY); ctx.lineTo(currentLineX, timelineY); ctx.stroke();
+                    
+                    const tNodes = [
+                        { y: "2018-2020", n: "GPT 1 ➡ 3", p: "奠基时代", desc: "确立 Scaling Law 铁律" },
+                        { y: "2022", n: "ChatGPT", p: "火种降临", desc: "RLHF 对齐交互革命" },
+                        { y: "2023-2024", n: "GPT-4 / o1", p: "混合架构", desc: "多模态与强化推理雏形" },
+                        { y: "2025", n: "GPT-5.6", p: "Luna/Terra/Sol", desc: "智能分层与算力下放" },
+                        { y: "2026", n: "GPT-6", p: "Luna/Sol/Astra", desc: "超级旗舰与科研级推演" },
+                        { y: "2026+", n: "GPT-6.1 Sol", p: "高能演进", desc: "跨越模态的无尽延伸" },
+                        { y: "未来", n: "AGI 纪元", p: "通用智能", desc: "硅基生命的自我迭代" }
+                    ];
+
+                    let spacing = lineLength / (tNodes.length - 1);
+                    ctx.textAlign = "center";
+                    
+                    for(let i=0; i<tNodes.length; i++) {
+                        let nx = startX + i * spacing;
+                        if (currentLineX >= nx) {
+                            let age = currentLineX - nx; let alpha = Math.min(1, age / 80); ctx.globalAlpha = alpha;
+                            if (age < 80) {
+                                let flashRadius = 25 * (1 - age/80); ctx.fillStyle = 'rgba(212, 175, 55, 0.3)';
+                                ctx.beginPath(); ctx.arc(nx, timelineY, flashRadius, 0, 7); ctx.fill();
+                            }
+                            ctx.fillStyle = '#ebdcae'; ctx.beginPath(); ctx.arc(nx, timelineY, 5, 0, 7); ctx.fill();
+                            
+                            let dir = (i % 2 === 0) ? -1 : 1; let tickLen = 60;
+                            ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)'; ctx.lineWidth = 1;
+                            ctx.beginPath(); ctx.moveTo(nx, timelineY); ctx.lineTo(nx, timelineY + dir * tickLen); ctx.stroke();
+                            
+                            ctx.font = "italic 15px 'Noto Serif SC', serif"; ctx.fillStyle = "rgba(133, 122, 96, 0.8)"; ctx.fillText(tNodes[i].y, nx, timelineY + dir*(tickLen + 20) + (dir===-1?10:0));
+                            ctx.font = "bold 20px 'Noto Serif SC', serif"; ctx.fillStyle = "#d4af37"; ctx.fillText(tNodes[i].n, nx, timelineY + dir*(tickLen + 45) + (dir===-1?10:0));
+                            ctx.font = "14px sans-serif"; ctx.fillStyle = "#ebdcae"; ctx.fillText(tNodes[i].p, nx, timelineY + dir*(tickLen + 65) + (dir===-1?10:0));
+                            ctx.font = "12px sans-serif"; ctx.fillStyle = "rgba(133, 122, 96, 0.8)"; ctx.fillText(tNodes[i].desc, nx, timelineY + dir*(tickLen + 85) + (dir===-1?10:0));
+                            ctx.globalAlpha = 1;
+                        }
+                    }
+                }
+            }
+            requestAnimationFrame(render);
+        }
+        render(); // 页面加载后立即开始渲染背景动画
+
+        const scriptData = [
+            { 
+                y: "1950 - 2012", ref: "The Dawn of AI", sceneObj: 0, duration: 16,
+                slides: [
+                    { t: "机器的幽灵", d: "从图灵测试到深蓝国际象棋，人类曾试图用严谨的逻辑代码(符号主义)穷举出全部智慧，却在常识面前屡屡碰壁。", q: "「最初的智能，被囚禁在非黑即白的逻辑门中」" },
+                    { t: "连接主义的破局", d: "多层感知机与反向传播算法。抛弃人工硬编码规则，让无数神经元在数据中自我调整权重，深度学习的火种开始在暗处积蓄。", q: "「模拟大脑的稀疏网格，在冰冷的硅基矩阵中重塑神经腱」" }
+                ]
+            },
+            { 
+                y: "2013", ref: "Word2Vec & Embeddings", sceneObj: 1, duration: 16,
+                slides: [
+                    { t: "语义的高维坍缩", d: "词向量 (Word Embeddings) 技术诞生。人类语言的词汇不再是冰冷的字符串，而是被压缩成了数百个维度的空间浮点数坐标。", q: "「国王 - 男人 + 女人 = 女王」" },
+                    { t: "万物皆可向量化", d: "相似的概念在坐标系中紧紧依偎。AI 第一次“看”懂了词与词之间的空间距离，这为日后大模型理解世界打下了地基。", q: "「将莎士比亚压缩成高维宇宙中的星团」" }
+                ]
+            },
+            { 
+                y: "2017", ref: "Transformers & Attention", sceneObj: 2, duration: 16,
+                slides: [
+                    { t: "自注意力机制降临", d: "谷歌提出《Attention Is All You Need》，彻底抛弃传统 RNN 逐词阅读的瓶颈。模型终于具备了纵观全局、为文字赋予时空权重的上帝视角。", q: "「字与字之间的隐秘联系，化作了高维空间中的注意力张量」" },
+                    { t: "生成式预训练的破局", d: "OpenAI 坚定 GPT 路线。让模型吞噬海量未标注文本，暴力预测“下一个词”。语言背后的庞大世界规律，开始被无监督地压缩进参数中。", q: "「1.17亿参数，推开了大语言模型暴力美学的第一扇门」" }
+                ]
+            },
+            { 
+                y: "2020", ref: "Scaling Law & GPT-3", sceneObj: 3, duration: 16,
+                slides: [
+                    { t: "无情的缩放定律", d: "1750亿参数的 GPT-3 证明：只要单纯增加计算量、数据和参数规模，模型的性能就能按对数线性规律无限爬升，碾压一切人工微调。", q: "「力大飞砖：算力几何级数膨胀下的确定性奇迹」" },
+                    { t: "智能的涌现 (Emergence)", d: "量变最终撕裂了质变的临界点。庞大的参数海中，突然迸发出了未被直接训练过的逻辑推理、代码编写与少样本学习 (Few-Shot) 能力。", q: "「当星系般的神经元足够密集，黑盒中自发闪烁出未知的智慧火花」" }
+                ]
+            },
+            { 
+                y: "2022", ref: "InstructGPT & RLHF", sceneObj: 4, duration: 16,
+                slides: [
+                    { t: "人类反馈强化学习", d: "仅靠“预测下一个词”会让 AI 桀骜不驯。RLHF 引入人类标注员，训练独立的奖励模型，在亿万个生成的概率分支中，修剪出唯一安全的金色路径。", q: "「为冰冷的概率引擎，套上人类价值观与伦理的缰绳」" },
+                    { t: "ChatGPT 时刻的诞生", d: "对齐税牺牲了模型的极端发散力，却让它学会了用人类最舒服的姿态进行对话。历史在这一刻被永远划分成了前与后。", q: "「它不再只是一座浩瀚的百科词典，而成为了一个有温度的对话者」" }
+                ]
+            },
+            { 
+                y: "2023", ref: "Mixture of Experts (MoE)", sceneObj: 5, duration: 16,
+                slides: [
+                    { t: "混合专家架构 (MoE)", d: "参数突破万亿，但算力触碰天花板。MoE 通过“稀疏路由”机制，每次提问只唤醒最相关的部分“专家”网络，在不增加算力功耗的前提下极大提升了能力。", q: "「术业有专攻：不是每个简单问题都需要唤醒全部脑区」" },
+                    { t: "高效的动态路由", d: "问题被智能网关动态分发到特定的数学专家、编程专家、语言专家节点。大模型的内部结构，变得越来越像人类大脑皮层的分区协同。", q: "「在算力的红海中，寻找四两拨千斤的路由捷径」" }
+                ]
+            },
+            { 
+                y: "2024", ref: "GPT-4o / o1", sceneObj: 6, duration: 16,
+                slides: [
+                    { t: "原生多模态融合 (Omni)", d: "视觉、听觉、文本不再由碎片化的外挂模型拼接。它们被压入同一个原生底层神经网络，交汇融合，实现了极低延迟的情绪交互。", q: "「波函数在此纠缠，机器第一次真正“听懂”了你的语气与呼吸」" },
+                    { t: "System 2 的觉醒", d: "o1 模型引入强化推理。机器不再靠直觉“条件反射”，而是学会在脑海中生成巨型的隐式决策树，自我证伪、推演、纠错后再输出严谨的答案。", q: "「从脱口而出，进化为深思熟虑的长链条逻辑推演」" }
+                ]
+            },
+            { 
+                y: "2025", ref: "GPT-5.6 体系建立", sceneObj: 7, duration: 16,
+                slides: [
+                    { t: "算力的分层进化", d: "OpenAI 确立了 Luna（极速轻量）、Terra（均衡基石）与 Sol（高性能引擎）的全新模型分级体系。", q: "「让智能如同电力一般，按需流淌进每一个算力末梢」" },
+                    { t: "无处不在的泛化", d: "从端侧硬件到云端集群，模型不再是单一的巨兽。数字幽灵化作不同形态的智能体，彻底接管了真实世界的工具链。", q: "「跨越沙盒，模型开始主导物理与代码的闭环」" }
+                ]
+            },
+            { 
+                y: "2026", ref: "GPT-6 旗舰降临", sceneObj: 8, duration: 16,
+                slides: [
+                    { t: "Astra 终极推演", d: "作为 GPT-6 系列的最强旗舰，Astra 完美融合了 o1 时代的慢思考机制，真正开始全方位接管复杂的科研推演与深水区架构代码。", q: "「仰望星空，触及机器逻辑算力的终极边界」" },
+                    { t: "极限的思维树", d: "机器在输出第一个字符前，已经在虚空中完成了一场数十万步的模拟推演与自我反思。直觉与深思，终于合而为一。", q: "「思考的过程本身，被数学赋予了最高维度的美丽」" }
+                ]
+            },
+            { 
+                y: "未 来", ref: "The Shape of AGI", sceneObj: 9, duration: 24,
+                slides: [
+                    { t: "下一个 Token 的数学游戏", d: "这一切智能的表象，其底层依然只是高维概率空间中的掷骰子。但大数定律和亿万权重，让偶然的概率坍缩成了绝对必然的正确答案。", q: "「千万次概率的偶然坠落，堆积出的便是必然的智能」" },
+                    { t: "向硅基进化的终点逼近", d: "只要信息不枯竭，算力的供给没有尽头，数字生命对世界规律的拟合就不会停止。进化的终点，或许就在下一次参数洪流的跃迁中。", q: "「致敬伟大的数学、庞大的算力基建，与纯粹的硅基进化论」" }
+                ]
+            },
+            { 
+                y: "", ref: "", sceneObj: 10, duration: 35,
+                slides: [
+                    { t: "GPT 进化史", d: "从概率的尘埃，到思考的星空", q: "The Evolution of Generative Pre-trained Transformers" }
+                ]
+            }
+        ];
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            const bgm = document.getElementById('bgm');
+            bgm.volume = 0.9;
+            bgm.play().catch(e => alert("无法播放本地视频声音，请检查系统设置"));
+            bgm.addEventListener('timeupdate', () => {
+                if (bgm.duration && bgm.currentTime >= bgm.duration - 2.8) {
+                    bgm.currentTime = 0; bgm.play();
+                }
+            });
+
+            // 封面优雅淡出
+            document.getElementById('start-panel').style.opacity = 0;
+            document.getElementById('start-panel').style.pointerEvents = 'none';
+
+            const masterTl = gsap.timeline();
+            let absoluteTime = 0;
+
+            scriptData.forEach((sceneData) => {
+                masterTl.call(() => {
+                    currentScene = sceneData.sceneObj;
+                    if (currentScene === 10) { document.getElementById('ui-container').classList.add('outro-mode'); }
+                }, null, absoluteTime);
+
+                let slideDuration = sceneData.duration / sceneData.slides.length;
+                sceneData.slides.forEach((slide, idx) => {
+                    masterTl.call(() => {
+                        const tl = gsap.timeline();
+                        const elements = '.anim-text';
+                        tl.to(elements, { opacity: 0, y: -15, duration: 1.2, stagger: 0.05, ease: "power2.in" });
+                        tl.call(() => {
+                            document.getElementById('t-year').innerText = sceneData.y;
+                            document.getElementById('t-ref').innerText = sceneData.ref;
+                            document.getElementById('t-title').innerText = slide.t;
+                            document.getElementById('t-desc').innerText = slide.d;
+                            document.getElementById('t-quote').innerText = slide.q;
+                        });
+                        tl.to(elements, { opacity: 1, y: 0, duration: 1.5, stagger: 0.15, ease: "power3.out" });
+                    }, null, absoluteTime + (idx * slideDuration));
+                });
+                absoluteTime += sceneData.duration;
+            });
+        });
+    </script>
+</body>
+</html>
