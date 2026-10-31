@@ -51,6 +51,18 @@
 * **单文件分发**：除 Google Fonts 外零外部依赖，下载即播，离线可用（字体自动降级）。
 * **帧纯函数化**：`render(t)` 的确定性设计同时解决了进度拖动、章节跳转与逐帧导出三个问题。
 
+## 📼 前作版本 (Legacy Edition)
+
+本仓库的第一版作品《运气的形状 (The Shape of AGI)》完整保留，记录着这条创作线最初的技术探索与全部踩坑原貌：
+
+* **[legacy.html](legacy.html)**：初版《Vibe 知识大赏 - 进化的形状》本体，GPT 进化史编年动画（Canvas + GSAP），依赖同目录的 `bgm.mp4` 作为背景音乐
+* **[README_v1.md](README_v1.md)**：初版 README 原文，包含完整的算法说明与“致命的 V8 GC 停顿”等工程事故复盘
+
+## 📜 许可与声明 (License & Disclaimer)
+
+* 本项目代码以 **MIT 许可证**开源，详见 [LICENSE](LICENSE)。
+* 本片为独立教育作品，与 Google 及论文作者无隶属关系；论文《Attention Is All You Need》版权归原作者所有。
+
 ---
 
 <div align="center">
